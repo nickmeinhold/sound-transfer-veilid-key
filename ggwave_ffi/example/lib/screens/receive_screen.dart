@@ -103,6 +103,8 @@ class _ReceiveScreenState extends State<ReceiveScreen> {
         _isListening = true;
         _statusMessage = 'Listening for data...';
         _receivedPayload = null;
+        _chunkCount = 0;
+        _totalSamples = 0;
       });
 
       // Process audio chunks
@@ -133,12 +135,34 @@ class _ReceiveScreenState extends State<ReceiveScreen> {
     }
   }
 
+  int _chunkCount = 0;
+  int _totalSamples = 0;
+
   void _processAudioChunk(Uint8List chunk) {
     if (_ggwave == null) return;
 
     try {
       // Convert PCM16 bytes to Int16List
-      final int16Data = Int16List.view(chunk.buffer);
+      // Copy to new buffer to ensure proper alignment (chunks may have odd offsets)
+      final alignedBytes = Uint8List.fromList(chunk);
+      final int16Data = alignedBytes.buffer.asInt16List(0, alignedBytes.length ~/ 2);
+
+      _chunkCount++;
+      _totalSamples += int16Data.length;
+
+      // Debug: log every 50 chunks (~1 second at typical chunk sizes)
+      if (_chunkCount % 50 == 0) {
+        // Calculate peak amplitude for debugging
+        int maxAmp = 0;
+        double maxFloat = 0;
+        for (var i = 0; i < int16Data.length; i++) {
+          final abs = int16Data[i].abs();
+          if (abs > maxAmp) maxAmp = abs;
+        }
+        // Also check float conversion
+        final testFloat = int16Data[0] / 32768.0;
+        debugPrint('Audio: chunks=$_chunkCount, samples=$_totalSamples, peak=$maxAmp, firstSample=${int16Data[0]}, asFloat=$testFloat');
+      }
 
       // Convert Int16 to Float32 (normalized)
       final float32Data = Float32List(int16Data.length);
@@ -147,7 +171,12 @@ class _ReceiveScreenState extends State<ReceiveScreen> {
       }
 
       // Try to decode
-      final result = _ggwave!.decode(float32Data);
+      final (result, statusCode) = _ggwave!.decodeWithStatus(float32Data);
+
+      // Debug: log decode attempts periodically
+      if (_chunkCount % 50 == 0) {
+        debugPrint('Decode: status=$statusCode, result=${result?.length ?? "null"}, samples=${float32Data.length}');
+      }
 
       if (result != null && result.isNotEmpty) {
         setState(() {

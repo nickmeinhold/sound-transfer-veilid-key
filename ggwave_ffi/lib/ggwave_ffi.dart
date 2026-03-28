@@ -167,6 +167,16 @@ class GGWave {
   /// Returns the decoded payload if a complete message is received,
   /// or null if more data is needed.
   Uint8List? decode(Float32List waveform) {
+    final (result, _) = decodeWithStatus(waveform);
+    return result;
+  }
+
+  /// Decodes audio waveform data with status code.
+  ///
+  /// Returns a tuple of (payload, statusCode) where:
+  /// - payload is the decoded data or null
+  /// - statusCode is: >0 = bytes decoded, 0 = need more data, <0 = error
+  (Uint8List?, int) decodeWithStatus(Float32List waveform) {
     _checkDisposed();
 
     // Convert Float32List to bytes
@@ -191,17 +201,17 @@ class GGWave {
       );
 
       if (result < 0) {
-        // Error or no complete message
-        return null;
+        // Error
+        return (null, result);
       }
 
       if (result == 0) {
         // No complete message yet
-        return null;
+        return (null, 0);
       }
 
       // Message decoded successfully
-      return Uint8List.fromList(payloadPtr.asTypedList(result));
+      return (Uint8List.fromList(payloadPtr.asTypedList(result)), result);
     } finally {
       calloc.free(waveformPtr);
       calloc.free(payloadPtr);

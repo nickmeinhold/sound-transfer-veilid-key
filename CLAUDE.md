@@ -113,14 +113,52 @@ If updating native code, remember to update both `src/` (for Android) and `ios/C
 
 ## Current Status
 
-Working prototype with:
-- Complete FFI bindings for ggwave
-- Working send/receive UI on iOS and Android
+**UI and FFI bindings work, but cross-device transmission does not decode successfully.**
+
+Working:
+- Complete FFI bindings for ggwave (iOS and Android)
+- Send/receive UI on both platforms
+- Audio encoding and playback (you can hear the chirpy ggwave tones)
+- Audio recording and capture (microphone receives audio data)
 - Protocol selection (audible/ultrasound)
 - 32-byte payload generation and display
 
+**Not working:**
+- Cross-device data transfer - the ggwave decoder never successfully decodes transmitted audio
+- Decoder always returns 0 ("need more data") even when receiving loud audio
+
+## Known Issues
+
+### 1. ggwave Decoder Not Decoding
+The decoder (`ggwave_ndecode`) always returns 0 (need more data) even when the microphone clearly picks up the transmitted audio. Tested with:
+- iOS sending → Android receiving: Android shows peak amplitudes 12000-32000 but decoder returns 0
+- Android sending → iOS receiving: iOS barely picks up the audio (low sensitivity)
+
+Possible causes:
+- Sample rate mismatch between encoder and decoder
+- Issue with how audio chunks are fed to the decoder
+- FFI binding issue with the decode function
+- ggwave library configuration issue
+
+### 2. iOS Microphone Low Sensitivity
+iOS microphone captures audio at very low levels (peaks 200-600) compared to Android (peaks 12000-32000). The `record` package may have audio session configuration issues on iOS.
+
+### 3. Audio Chunk Alignment
+Fixed in receive_screen.dart - audio chunks from the `record` package can have odd byte offsets, requiring copy to aligned buffer before converting to Int16List.
+
+## Debugging
+
+The receive_screen.dart has debug logging enabled:
+```
+Audio: chunks=N, samples=X, peak=Y, firstSample=Z, asFloat=W
+Decode: status=S, result=null, samples=N
+```
+
+- `peak` should be 10000+ when receiving ggwave audio
+- `status` is the raw ggwave_ndecode return value (0 = need more data, >0 = decoded bytes, <0 = error)
+
 ## Potential Next Steps
-- Add actual Veilid integration
-- Test cross-device transmission
-- Add error handling/retry logic
-- Consider adding QR code fallback
+- Debug the ggwave decoder issue (possibly test with known-good audio samples)
+- Investigate iOS audio session configuration for better microphone sensitivity
+- Consider using a different audio recording package for iOS
+- Add QR code fallback for reliable data transfer

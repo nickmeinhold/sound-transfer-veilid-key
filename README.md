@@ -2,12 +2,16 @@
 
 A Flutter app demonstrating data-over-sound transmission using the ggwave library. This can be used to transfer small payloads (like a 32-byte Veilid public key) between devices using audio.
 
+## Status
+
+**Work in Progress** - The app builds and runs on both iOS and Android, but cross-device data transfer does not currently work. The ggwave decoder fails to decode transmitted audio. See [Known Issues](#known-issues) below.
+
 ## Features
 
 - **Send Screen**: Encode and transmit a 32-byte payload via sound
 - **Receive Screen**: Listen for and decode incoming sound transmissions
 - **Protocol Selection**: Choose between audible and ultrasonic protocols
-- **Cross-Platform**: Works on both iOS and Android
+- **Cross-Platform**: Builds on both iOS and Android
 
 ## Project Structure
 
@@ -166,10 +170,14 @@ ggwave.dispose();
 ## Troubleshooting
 
 ### No data received
+**Note**: Cross-device transfer is currently not working due to a decoder issue. See [Known Issues](#known-issues).
+
+If debugging:
 - Ensure both devices are using the same protocol
-- Try moving devices closer together
-- Use audible protocol first for debugging
+- Try moving devices closer together (within 30cm)
+- Use audible protocol first (you should hear the tones)
 - Check that microphone permission is granted
+- Check debug logs for peak amplitude values (should be 10000+ when receiving)
 
 ### Distorted audio
 - Lower the volume setting (default 25 is usually good)
@@ -192,6 +200,19 @@ ggwave.dispose();
 ### General build issues
 - Run `flutter clean` and rebuild
 - For iOS: Delete `ios/Pods` and `ios/Podfile.lock`, then run `pod install`
+
+## Known Issues
+
+### Data transfer not working
+The ggwave decoder does not successfully decode transmitted audio. Testing shows:
+- Audio encoding and playback works (you can hear the chirpy tones)
+- Microphone captures audio (peak amplitudes visible in debug logs)
+- Decoder always returns "need more data" even with strong audio signal
+
+This appears to be an issue with either the FFI bindings or how audio is fed to the decoder. Further investigation needed.
+
+### iOS microphone sensitivity
+iOS captures audio at much lower levels than Android. This may be related to audio session configuration in the `record` package.
 
 ## Credits
 
